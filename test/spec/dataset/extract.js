@@ -12,12 +12,26 @@ module.exports = {
     var checkValues = helpers.checkValues;
     var catchWarnings = basis.require('./helpers/common.js').catchWarnings;
 
+    var devWrap = basis.require('basis.data').devWrap;
     var dataWrap = basis.require('basis.data').wrap;
     var DataObject = basis.require('basis.data').Object;
     var Value = basis.require('basis.data').Value;
     var ReadOnlyDataset = basis.require('basis.data').ReadOnlyDataset;
     var Dataset = basis.require('basis.data').Dataset;
     var Extract = basis.require('basis.data.dataset').Extract;
+
+    function generateDataset(elements, map) {
+      map = map || basis.fn.$self;
+
+      return new Dataset({
+        syncAction: function(){
+          this.set(range(1, elements)
+            .map(function(value){
+              return map(new DataObject({ data: { value: value } }));
+            }));
+        }
+      });
+    }
 
     var eventInfo = {};
     Extract.prototype.debug_emit = function(event){
@@ -585,6 +599,25 @@ module.exports = {
             assert(extract.itemCount == 2);
             assert(checkValues(extract, range(4, 5)) == false);
             assert(eventCount(extract, 'itemsChanged') == 2);
+          }
+        },
+        {
+          name: 'extract proxy objects',
+          test: function(){
+            var elementToUpdate;
+            var result = new Extract({
+              active: true,
+              rule: 'data.value'
+            });
+
+            result.setSource(generateDataset(5, function(value){
+              return new DataObject({ data: { value: value } });
+            }), true);
+            assert(result.source.getValues('data.value').concat([1, 2, 3, 4, 5]), result.getValues('data.value'));
+
+            elementToUpdate = result.source.pick();
+            elementToUpdate.update({ value: devWrap(elementToUpdate.data.value) });
+            assert(result.source.getValues('data.value').concat([1, 2, 3, 4, 5]), result.getValues('data.value'));
           }
         },
         {
